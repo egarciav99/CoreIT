@@ -1,0 +1,6 @@
+{
+  "name": "CoreIT Automatización",
+  "description": "Terminal táctil y panel de control para disparo y gestión de automatizaciones con IA, scripts JavaScript en vivo y webhooks de n8n. Powered by IA - IT.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
