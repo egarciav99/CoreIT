@@ -69,6 +69,7 @@ export const CreateAutomationModal: React.FC<CreateAutomationModalProps> = ({
   // Network / Webhook info
   const [webhookProvider, setWebhookProvider] = useState<'n8n' | 'make' | 'zapier' | 'custom'>('n8n');
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookUrlStep2, setWebhookUrlStep2] = useState('');
   const [httpMethod, setHttpMethod] = useState<'POST' | 'GET' | 'PUT' | 'DELETE'>('POST');
   const [n8nWorkflowName, setN8nWorkflowName] = useState('');
   const [targetService, setTargetService] = useState('');
@@ -87,6 +88,7 @@ export const CreateAutomationModal: React.FC<CreateAutomationModalProps> = ({
       setCustomCode(editingAutomation.customCode || DEFAULT_CODE_TEMPLATES.pdfToExcel);
       setWebhookProvider(editingAutomation.webhookProvider || 'n8n');
       setWebhookUrl(editingAutomation.webhookUrl || '');
+      setWebhookUrlStep2(editingAutomation.webhookUrlStep2 || '');
       setHttpMethod(editingAutomation.httpMethod || 'POST');
       setN8nWorkflowName(editingAutomation.n8nWorkflowName || '');
       setTargetService(editingAutomation.targetService || '');
@@ -104,6 +106,7 @@ export const CreateAutomationModal: React.FC<CreateAutomationModalProps> = ({
       setCustomCode(DEFAULT_CODE_TEMPLATES.pdfToExcel);
       setWebhookProvider('n8n');
       setWebhookUrl('https://n8n.tu-servidor.io/webhook/pdf-to-excel');
+      setWebhookUrlStep2('');
       setHttpMethod('POST');
       setN8nWorkflowName('WF-PDF_to_Excel_Parser');
       setTargetService('n8n (OCR + Excel Builder)');
@@ -215,6 +218,7 @@ export const CreateAutomationModal: React.FC<CreateAutomationModalProps> = ({
       inputType,
       outputType,
       webhookUrl,
+      webhookUrlStep2,
       targetService,
       logs: [],
       createdAt: new Date().toISOString()
@@ -262,6 +266,7 @@ export const CreateAutomationModal: React.FC<CreateAutomationModalProps> = ({
       customCode: customCode.trim() || undefined,
       webhookProvider,
       webhookUrl: webhookUrl.trim() || undefined,
+      webhookUrlStep2: outputType === 'interactive_selection' ? webhookUrlStep2.trim() || undefined : undefined,
       httpMethod,
       n8nWorkflowName: n8nWorkflowName.trim() || undefined,
       inputType,
@@ -655,7 +660,26 @@ export const CreateAutomationModal: React.FC<CreateAutomationModalProps> = ({
                     placeholder="https://n8n.tu-instancia.com/webhook/..."
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white"
                   />
+                  {outputType === 'interactive_selection' && (
+                    <p className="text-[11px] text-slate-500 mt-1">Paso 1: recibe el archivo y devuelve las secciones detectadas.</p>
+                  )}
                 </div>
+
+                {outputType === 'interactive_selection' && (
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">
+                      URL Webhook del paso 2 (genera el archivo)
+                    </label>
+                    <input
+                      type="url"
+                      value={webhookUrlStep2}
+                      onChange={(e) => setWebhookUrlStep2(e.target.value)}
+                      placeholder="https://n8n.tu-instancia.com/webhook/..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">Recibe la sección elegida y los pasos revisados, y devuelve el .xlsx.</p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
