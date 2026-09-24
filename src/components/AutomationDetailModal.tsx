@@ -26,7 +26,7 @@ import { Automation, ExecutionLog, IntermediateData, ExecuteAutomationPayload } 
 import { renderAutomationIcon, COLOR_SCHEMES } from '../utils/theme';
 import { playPosBeep } from '../utils/audio';
 import { generateAndDownloadExcel } from '../utils/fileExporter';
-import { WorksheetBlock, CaptureField, blocksForSection } from '../utils/n8nInteractive';
+import { WorksheetBlock, CaptureField, blocksForSection, isRealWebhookUrl } from '../utils/n8nInteractive';
 
 /** Solo los bloques con formato real del workflow (paso + instrucción) se pueden revisar. */
 function toReviewBlocks(data?: IntermediateData | null): WorksheetBlock[] {
@@ -80,6 +80,8 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
   const [detectedTitle, setDetectedTitle] = useState<string>('');
   const [selectedSection, setSelectedSection] = useState<string>('');
   const [reviewBlocks, setReviewBlocks] = useState<WorksheetBlock[]>([]);
+  // true cuando la revisión parte de bloques reales (aunque luego se borren todos)
+  const [hasReviewData, setHasReviewData] = useState(false);
 
   // Live elapsed execution counter up to 2 minutes (120s)
   useEffect(() => {
@@ -104,9 +106,12 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
         setDetectedSections(latestLog.intermediateData.secciones_detectadas);
         setDetectedTitle(latestLog.intermediateData.titulo_ficha || 'Ficha Técnica Detectada');
         setSelectedSection(latestLog.intermediateData.selectedSection || latestLog.intermediateData.secciones_detectadas[0]);
-        setReviewBlocks(toReviewBlocks(latestLog.intermediateData));
+        const blocks = toReviewBlocks(latestLog.intermediateData);
+        setReviewBlocks(blocks);
+        setHasReviewData(blocks.length > 0);
       } else {
         setReviewBlocks([]);
+        setHasReviewData(false);
         setCurrentIntermediateData(null);
         setDetectedSections([]);
         setDetectedTitle('');
@@ -161,6 +166,9 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
     automation.inputType === 'generic_file' ? 'Cambiar Archivo' :
     automation.inputType === 'pdf_file' ? 'Cambiar PDF' :
     'Cambiar Archivo';
+
+  // Con un webhook real, n8n necesita un PDF de verdad: la muestra es solo para la demo simulada.
+  const needsRealFile = automation.outputType === 'interactive_selection' && isRealWebhookUrl(automation.webhookUrl);
 
   const sampleButtonLabel = 
     automation.inputType === 'excel_file' ? 'Usar Excel de muestra' :
@@ -287,7 +295,9 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
         setDetectedSections(log.intermediateData.secciones_detectadas);
         setDetectedTitle(log.intermediateData.titulo_ficha || 'Ficha Técnica Detectada');
         setSelectedSection(log.intermediateData.selectedSection || log.intermediateData.secciones_detectadas[0]);
-        setReviewBlocks(toReviewBlocks(log.intermediateData));
+        const blocks = toReviewBlocks(log.intermediateData);
+        setReviewBlocks(blocks);
+        setHasReviewData(blocks.length > 0);
         playPosBeep('toggle');
       } else if (log.status === 'success') {
         playPosBeep('success');
@@ -352,8 +362,10 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
   const visibleBlockIndexes = reviewBlocks.length > 0 && selectedSection ? blocksForSection(reviewBlocks, selectedSection) : [];
 
   // STEP 2: Confirm Selection and Generate e-Worksheet (.xlsx)
+  const reviewIsEmpty = hasReviewData && reviewBlocks.length === 0;
+
   const handleGenerateWorksheet = async () => {
-    if (isGeneratingWorksheet || !selectedSection) return;
+    if (isGeneratingWorksheet || !selectedSection || reviewIsEmpty) return;
     setIsGeneratingWorksheet(true);
     setLastRunResult(null);
     playPosBeep('trigger');
@@ -365,7 +377,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
       titulo_ficha: detectedTitle || currentIntermediateData?.titulo_ficha || 'Ficha Técnica de Homologación - Titan X',
       secciones_detectadas: detectedSections.length > 0 ? detectedSections : (currentIntermediateData?.secciones_detectadas || []),
       selectedSection: selectedSection,
-      todos_los_bloques: reviewBlocks.length > 0
+      todos_los_bloques: hasReviewData
         ? (reviewBlocks as unknown as Array<Record<string, unknown>>)
         : currentIntermediateData?.todos_los_bloques || [
         { seccion: "1. Parámetros Eléctricos y Consumo Energético", parametros: 8 },
@@ -627,7 +639,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
                             return <UploadCloud className="w-4 h-4 text-blue-600 shrink-0" />;
                           })()}
                           <span className="text-xs text-slate-700 truncate font-mono">
-                            {selectedFile ? selectedFile.name : sampleFileName}
+                            {selectedFile ? selectedFile.name : needsRealFile ? 'Selecciona un PDF' : sampleFileName}
                           </span>
                           <span className="ml-auto text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold shrink-0">
                             {changeFileLabel}
@@ -641,7 +653,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
                         />
                       </label>
 
-                      <button
+                      {!needsRealFile && (<button
                         type="button"
                         onClick={() => {
                           const defaultSample = 
@@ -658,7 +670,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
                         className="px-3 py-2 text-xs font-mono text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
                       >
                         {sampleButtonLabel}
-                      </button>
+                      </button>)}
                     </div>
                   </div>
                 )}
@@ -831,12 +843,15 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
                     )}
 
                     {/* Action Confirmation Button */}
-                    <div className="pt-2 flex items-center justify-end">
+                    <div className="pt-2 flex items-center justify-end gap-3">
+                      {reviewIsEmpty && (
+                        <span className="text-xs text-rose-600">Has quitado todos los pasos: vuelve a analizar el PDF para generar la ficha.</span>
+                      )}
                       <button
                         id="btn-confirm-worksheet"
                         type="button"
                         onClick={handleGenerateWorksheet}
-                        disabled={isGeneratingWorksheet || !selectedSection}
+                        disabled={isGeneratingWorksheet || !selectedSection || reviewIsEmpty}
                         className="automation-btn px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs flex items-center gap-2 shadow-sm cursor-pointer transition-all disabled:opacity-75"
                       >
                         {isGeneratingWorksheet ? (
@@ -1133,7 +1148,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
             <button
               id="btn-modal-run-now"
               onClick={handleRunNow}
-              disabled={isRunning || isGeneratingWorksheet}
+              disabled={isRunning || isGeneratingWorksheet || (needsRealFile && !selectedFile)}
               className="automation-btn col-span-2 sm:col-span-3 py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs tracking-wide shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-75"
             >
               <Zap className="w-4 h-4 fill-current" />

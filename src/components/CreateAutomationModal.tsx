@@ -106,6 +106,7 @@ export const CreateAutomationModal: React.FC<CreateAutomationModalProps> = ({
       setCustomCode(DEFAULT_CODE_TEMPLATES.pdfToExcel);
       setWebhookProvider('n8n');
       setWebhookUrl('https://n8n.tu-servidor.io/webhook/pdf-to-excel');
+      setWebhookUrlStep2('');
       setHttpMethod('POST');
       setN8nWorkflowName('WF-PDF_to_Excel_Parser');
       setTargetService('n8n (OCR + Excel Builder)');
