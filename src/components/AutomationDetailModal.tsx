@@ -17,13 +17,24 @@ import {
   Layers,
   Sparkles,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  ClipboardCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Automation, ExecutionLog, IntermediateData, ExecuteAutomationPayload } from '../types';
 import { renderAutomationIcon, COLOR_SCHEMES } from '../utils/theme';
 import { playPosBeep } from '../utils/audio';
 import { generateAndDownloadExcel } from '../utils/fileExporter';
+import { WorksheetBlock, CaptureField, blocksForSection } from '../utils/n8nInteractive';
+
+/** Solo los bloques con formato real del workflow (paso + instrucción) se pueden revisar. */
+function toReviewBlocks(data?: IntermediateData | null): WorksheetBlock[] {
+  const raw = (data?.todos_los_bloques || []) as unknown[];
+  return raw.filter(
+    (b): b is WorksheetBlock => typeof b === 'object' && b !== null && typeof (b as WorksheetBlock).texto_instruccion === 'string'
+  ).map((b) => ({ ...b, campos: Array.isArray(b.campos) ? b.campos.map((c) => ({ ...c })) : [] }));
+}
 
 interface AutomationDetailModalProps {
   automation: Automation | null;
@@ -68,6 +79,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
   const [detectedSections, setDetectedSections] = useState<string[]>([]);
   const [detectedTitle, setDetectedTitle] = useState<string>('');
   const [selectedSection, setSelectedSection] = useState<string>('');
+  const [reviewBlocks, setReviewBlocks] = useState<WorksheetBlock[]>([]);
 
   // Live elapsed execution counter up to 2 minutes (120s)
   useEffect(() => {
@@ -92,7 +104,9 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
         setDetectedSections(latestLog.intermediateData.secciones_detectadas);
         setDetectedTitle(latestLog.intermediateData.titulo_ficha || 'Ficha Técnica Detectada');
         setSelectedSection(latestLog.intermediateData.selectedSection || latestLog.intermediateData.secciones_detectadas[0]);
+        setReviewBlocks(toReviewBlocks(latestLog.intermediateData));
       } else {
+        setReviewBlocks([]);
         setCurrentIntermediateData(null);
         setDetectedSections([]);
         setDetectedTitle('');
@@ -273,6 +287,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
         setDetectedSections(log.intermediateData.secciones_detectadas);
         setDetectedTitle(log.intermediateData.titulo_ficha || 'Ficha Técnica Detectada');
         setSelectedSection(log.intermediateData.selectedSection || log.intermediateData.secciones_detectadas[0]);
+        setReviewBlocks(toReviewBlocks(log.intermediateData));
         playPosBeep('toggle');
       } else if (log.status === 'success') {
         playPosBeep('success');
@@ -299,6 +314,43 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
     }
   };
 
+  // Revisión humana de los pasos y campos extraídos antes de generar el Excel
+  const updateBlock = (index: number, patch: Partial<WorksheetBlock>) =>
+    setReviewBlocks((prev) => prev.map((b, i) => (i === index ? { ...b, ...patch } : b)));
+  const removeBlock = (index: number) => setReviewBlocks((prev) => prev.filter((_, i) => i !== index));
+  // Los límites se envían como número cuando el texto lo es ("2,5" → 2.5)
+  const toLimit = (value: string): number | string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const num = Number(trimmed.replace(',', '.'));
+    return Number.isFinite(num) ? num : trimmed;
+  };
+  const updateField = (blockIndex: number, fieldIndex: number, patch: Partial<CaptureField>) =>
+    setReviewBlocks((prev) =>
+      prev.map((b, i) =>
+        i === blockIndex
+          ? { ...b, campos: (b.campos || []).map((c, j) => (j === fieldIndex ? { ...c, ...patch } : c)) }
+          : b
+      )
+    );
+  const removeField = (blockIndex: number, fieldIndex: number) =>
+    setReviewBlocks((prev) =>
+      prev.map((b, i) => {
+        if (i !== blockIndex) return b;
+        const campos = (b.campos || []).filter((_, j) => j !== fieldIndex);
+        return { ...b, campos, requiere_captura: campos.length > 0 };
+      })
+    );
+  const addField = (blockIndex: number) =>
+    setReviewBlocks((prev) =>
+      prev.map((b, i) =>
+        i === blockIndex
+          ? { ...b, requiere_captura: true, campos: [...(b.campos || []), { etiqueta_campo: '', placeholder: '', tiene_limite: false }] }
+          : b
+      )
+    );
+  const visibleBlockIndexes = reviewBlocks.length > 0 && selectedSection ? blocksForSection(reviewBlocks, selectedSection) : [];
+
   // STEP 2: Confirm Selection and Generate e-Worksheet (.xlsx)
   const handleGenerateWorksheet = async () => {
     if (isGeneratingWorksheet || !selectedSection) return;
@@ -313,7 +365,9 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
       titulo_ficha: detectedTitle || currentIntermediateData?.titulo_ficha || 'Ficha Técnica de Homologación - Titan X',
       secciones_detectadas: detectedSections.length > 0 ? detectedSections : (currentIntermediateData?.secciones_detectadas || []),
       selectedSection: selectedSection,
-      todos_los_bloques: currentIntermediateData?.todos_los_bloques || [
+      todos_los_bloques: reviewBlocks.length > 0
+        ? (reviewBlocks as unknown as Array<Record<string, unknown>>)
+        : currentIntermediateData?.todos_los_bloques || [
         { seccion: "1. Parámetros Eléctricos y Consumo Energético", parametros: 8 },
         { seccion: "2. Ensayos Térmicos y Límites de Temperatura", parametros: 6 },
         { seccion: "3. Certificaciones de Seguridad CE / UL / ISO 9001", parametros: 5 },
@@ -693,6 +747,88 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
                         })}
                       </div>
                     </div>
+
+                    {/* Revisión humana antes de generar */}
+                    {visibleBlockIndexes.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-purple-800 flex items-center gap-1.5">
+                            <ClipboardCheck className="w-3.5 h-3.5" />
+                            Revisa los pasos y campos antes de generar
+                          </span>
+                          <span className="text-[10px] font-mono text-purple-700">{visibleBlockIndexes.length} pasos</span>
+                        </div>
+                        <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                          {visibleBlockIndexes.map((bi) => {
+                            const block = reviewBlocks[bi];
+                            return (
+                              <div key={bi} className="bg-white border border-purple-200 rounded-xl p-2.5 space-y-2">
+                                <div className="flex items-start gap-2">
+                                  <span className="text-[10px] font-bold text-purple-700 mt-1.5 shrink-0">#{String(block.paso)}</span>
+                                  <textarea
+                                    value={block.texto_instruccion}
+                                    onChange={(e) => updateBlock(bi, { texto_instruccion: e.target.value })}
+                                    rows={2}
+                                    aria-label={`Instrucción del paso ${block.paso}`}
+                                    className="flex-1 text-[11px] text-slate-800 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-400 resize-y"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeBlock(bi)}
+                                    title="Quitar este paso"
+                                    aria-label={`Quitar el paso ${block.paso}`}
+                                    className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                {(block.campos || []).map((campo, fi) => (
+                                  <div key={fi} className="flex flex-wrap items-center gap-1.5 pl-6">
+                                    <input
+                                      value={campo.etiqueta_campo}
+                                      onChange={(e) => updateField(bi, fi, { etiqueta_campo: e.target.value })}
+                                      placeholder="Campo a capturar (unidad)"
+                                      aria-label="Etiqueta del campo"
+                                      className="flex-1 min-w-[140px] text-[11px] border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                    />
+                                    <input
+                                      value={campo.limite_min ?? ''}
+                                      onChange={(e) => updateField(bi, fi, { limite_min: toLimit(e.target.value), tiene_limite: Boolean(e.target.value.trim() || campo.limite_max != null && campo.limite_max !== '') })}
+                                      placeholder="mín"
+                                      aria-label="Límite mínimo"
+                                      className="w-14 text-[11px] border border-slate-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                    />
+                                    <input
+                                      value={campo.limite_max ?? ''}
+                                      onChange={(e) => updateField(bi, fi, { limite_max: toLimit(e.target.value), tiene_limite: Boolean(e.target.value.trim() || campo.limite_min != null && campo.limite_min !== '') })}
+                                      placeholder="máx"
+                                      aria-label="Límite máximo"
+                                      className="w-14 text-[11px] border border-slate-200 rounded-lg px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeField(bi, fi)}
+                                      title="Quitar campo"
+                                      aria-label="Quitar campo"
+                                      className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => addField(bi)}
+                                  className="ml-6 text-[10px] font-semibold text-purple-700 hover:underline flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" /> Añadir campo de captura
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Action Confirmation Button */}
                     <div className="pt-2 flex items-center justify-end">

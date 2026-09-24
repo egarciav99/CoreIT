@@ -1,5 +1,6 @@
 import { Automation, IntermediateData } from '../types';
 import { generateAndDownloadExcel, downloadBinaryFile } from './fileExporter';
+import { analyzePdf, generateWorksheet, isRealWebhookUrl, WorksheetBlock } from './n8nInteractive';
 
 export interface CodeRunnerResult {
   success: boolean;
@@ -331,6 +332,12 @@ export async function executeUserCode(
 
   const maxTimeoutMs = (automation.timeoutSeconds ? automation.timeoutSeconds : 120) * 1000; // 120.000 ms (2 minutos) por defecto para n8n
 
+  // Flujo interactivo real: si el webhook está configurado, se llama a n8n directamente
+  // (sin depender del código de ejemplo guardado en la automatización).
+  if (automation.outputType === 'interactive_selection' && isRealWebhookUrl(options?.webhookUrl || automation.webhookUrl)) {
+    return runInteractiveN8n(automation, options, maxTimeoutMs, startTime, logs, logger);
+  }
+
   const helpers = {
     log: logger,
     timeoutMs: maxTimeoutMs,
@@ -586,3 +593,61 @@ export async function executeUserCode(
   };
 }
 
+
+async function runInteractiveN8n(
+  automation: Automation,
+  options: CodeRunnerOptions | undefined,
+  timeoutMs: number,
+  startTime: number,
+  logs: string[],
+  log: (msg: string) => void
+): Promise<CodeRunnerResult> {
+  const isStep2 = options?.step === 2 || Boolean(options?.selectedSection);
+  const elapsed = () => Math.round(performance.now() - startTime);
+  try {
+    if (!isStep2) {
+      const url = (options?.webhookUrl || automation.webhookUrl) as string;
+      if (!options?.file) throw new Error('Selecciona un archivo PDF para analizar.');
+      log(`1. Enviando "${options.file.name}" al webhook de análisis de n8n...`);
+      const data = await analyzePdf(url, options.file, timeoutMs, log);
+      const sections = data.secciones_detectadas || [];
+      const blocks = (data.todos_los_bloques || []) as unknown[];
+      log(`2. Documento: ${data.titulo_ficha}`);
+      log(`3. ${sections.length - 1} secciones y ${blocks.length} pasos detectados. Revisa antes de generar el Excel.`);
+      return {
+        success: true,
+        status: 'requires_input',
+        summary: `PDF analizado: ${sections.length - 1} secciones y ${blocks.length} pasos. Elige la sección y revisa los campos.`,
+        durationMs: elapsed(),
+        logs,
+        intermediateData: data,
+        outputData: data,
+      };
+    }
+
+    const url2 = automation.webhookUrlStep2;
+    if (!isRealWebhookUrl(url2)) {
+      throw new Error('Falta la URL del webhook del paso 2 (Editar → Red / Webhook).');
+    }
+    const section = options?.selectedSection || options?.intermediateData?.selectedSection || 'TODAS LAS SECCIONES';
+    const title = options?.intermediateData?.titulo_ficha || 'e-Worksheet';
+    const blocks = (options?.intermediateData?.todos_los_bloques || []) as unknown as WorksheetBlock[];
+    log(`4. Generando e-Worksheet para "${section}" con ${blocks.length} pasos revisados...`);
+    const { blob, fileName } = await generateWorksheet(url2, { section, title, blocks }, timeoutMs);
+    downloadBinaryFile(blob, fileName);
+    log(`5. Excel descargado: ${fileName}`);
+    return {
+      success: true,
+      status: 'success',
+      summary: `e-Worksheet generado para "${section}" y descargado (${fileName}).`,
+      durationMs: elapsed(),
+      logs,
+      downloadFileName: fileName,
+      intermediateData: { ...options?.intermediateData, selectedSection: section },
+    };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    log(`⚠️ ${errorMsg}`);
+    return { success: false, status: 'failed', summary: errorMsg, durationMs: elapsed(), logs, error: errorMsg };
+  }
+}

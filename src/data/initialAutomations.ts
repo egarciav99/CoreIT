@@ -5,7 +5,7 @@ export const INITIAL_AUTOMATIONS: Automation[] = [
   {
     id: 'auto-n8n-ficha-interactiva',
     name: 'n8n: Ficha Técnica PDF a e-Worksheet (.xlsx)',
-    description: 'Flujo interactivo en 2 pasos: n8n recibe un PDF de especificaciones técnicas, detecta dinámicamente las secciones con OCR/IA y permite al usuario elegir qué sección compilar en un e-Worksheet Excel nativo.',
+    description: 'Flujo interactivo en 2 pasos: n8n extrae los pasos del PDF con reglas y con IA, un segundo modelo los audita contra el texto original, y la persona elige la sección y revisa los campos antes de generar un e-Worksheet Excel protegido.',
     category: 'Documentos & PDF',
     status: 'active',
     triggerType: 'n8n_webhook',
@@ -19,7 +19,7 @@ export const INITIAL_AUTOMATIONS: Automation[] = [
     executionCount: 142,
     lastExecutedAt: 'Hace 2 min',
     avgDurationMs: 510,
-    targetService: 'n8n (OCR + JSON Segmenter + Excel Builder)',
+    targetService: 'n8n (regex + Gemini + auditor + ExcelJS)',
     webhookUrl: 'https://n8n.tu-servidor.io/webhook/interactive-pdf-to-worksheet',
     timeoutSeconds: 120,
     customCode: DEFAULT_CODE_TEMPLATES.interactivePdfToExcel,

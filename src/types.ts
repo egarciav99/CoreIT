@@ -103,6 +103,8 @@ export interface Automation {
   
   // Webhook / n8n details
   webhookUrl?: string;
+  /** Flujos interactivos: webhook del paso 2 (genera el archivo final). */
+  webhookUrlStep2?: string;
   webhookProvider?: 'n8n' | 'make' | 'zapier' | 'custom';
   httpMethod?: 'POST' | 'GET' | 'PUT' | 'DELETE';
   httpHeaders?: string;
