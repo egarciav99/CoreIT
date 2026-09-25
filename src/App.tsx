@@ -455,6 +455,17 @@ export default function App() {
             <span>Latencia promedio: <strong className="text-slate-800 font-mono">180ms</strong></span>
           </div>
         </div>
+        <p className="max-w-7xl mx-auto mt-2 text-[11px] text-slate-400 text-center sm:text-right">
+          Creado por{' '}
+          <a
+            href="https://www.egsolutions.tech/?utm_source=coreit&utm_medium=footer"
+            target="_blank"
+            rel="noopener"
+            className="underline decoration-slate-300 underline-offset-2 hover:text-emerald-700 transition-colors"
+          >
+            EG Solutions
+          </a>
+        </p>
       </footer>
 
       {/* Automation Detail Modal */}
