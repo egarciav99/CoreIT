@@ -5,6 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // Rutas relativas: la web funciona igual en la raíz de un dominio o en una subcarpeta (p. ej. /coreit/).
+    base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

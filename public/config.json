@@ -1,0 +1,9 @@
+{
+  "mode": "demo",
+  "companyName": "",
+  "logoUrl": "",
+  "webhooks": {
+    "pdfStep1": "",
+    "pdfStep2": ""
+  }
+}

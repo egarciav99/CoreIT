@@ -129,5 +129,8 @@ export interface POSStats {
   active: number;
   paused: number;
   totalExecutions: number;
-  successRate: number;
+  /** Porcentaje de ejecuciones correctas (null si aún no hay ejecuciones). */
+  successRate: number | null;
+  /** Duración media en ms (null si aún no hay ejecuciones). */
+  avgLatencyMs: number | null;
 }

@@ -9,6 +9,7 @@ import {
   Clock
 } from 'lucide-react';
 import { POSStats } from '../types';
+import { getConfig } from '../config';
 import { playPosBeep, setSoundEnabled } from '../utils/audio';
 
 interface PosHeaderProps {
@@ -82,7 +83,7 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
           <span className="hidden md:inline-block text-slate-300">|</span>
 
           <div className="hidden md:flex items-center gap-2 text-slate-500">
-            <span>Ejecuciones hoy: <strong className="text-slate-800 font-semibold">{stats.totalExecutions}</strong></span>
+            <span>{getConfig().mode === 'demo' ? 'Ejecuciones hoy' : 'Ejecuciones'}: <strong className="text-slate-800 font-semibold">{stats.totalExecutions}</strong></span>
           </div>
         </div>
 
@@ -171,6 +172,9 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
         {/* Brand */}
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
+            {getConfig().logoUrl && (
+              <img src={getConfig().logoUrl} alt={getConfig().companyName || 'Logo'} className="h-9 w-auto max-w-[140px] object-contain" />
+            )}
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800 flex items-center gap-1.5">
               <span>CoreIT</span>
               <span className="text-emerald-700 font-bold">Automatización</span>
@@ -181,7 +185,7 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-            Terminal de Control & Automatización • <span className="text-emerald-600 font-semibold">{stats.active} Activas</span> de {stats.total}
+            {getConfig().companyName ? `${getConfig().companyName} • ` : 'Terminal de Control & Automatización • '}<span className="text-emerald-600 font-semibold">{stats.active} Activas</span> de {stats.total}
           </p>
         </div>
 

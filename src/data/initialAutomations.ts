@@ -1,7 +1,8 @@
 import { Automation } from '../types';
 import { DEFAULT_CODE_TEMPLATES } from '../utils/codeRunner';
+import { getConfig } from '../config';
 
-export const INITIAL_AUTOMATIONS: Automation[] = [
+const DEMO_AUTOMATIONS: Automation[] = [
   {
     id: 'auto-n8n-ficha-interactiva',
     name: 'n8n: Ficha Técnica PDF a e-Worksheet (.xlsx)',
@@ -20,9 +21,8 @@ export const INITIAL_AUTOMATIONS: Automation[] = [
     lastExecutedAt: 'Hace 2 min',
     avgDurationMs: 510,
     targetService: 'n8n (regex + Gemini + auditor + ExcelJS)',
-    // En despliegue, las URLs reales vienen de las variables de entorno (ver README).
-    webhookUrl: import.meta.env.VITE_N8N_PDF_STEP1_URL || 'https://n8n.tu-servidor.io/webhook/interactive-pdf-to-worksheet',
-    webhookUrlStep2: import.meta.env.VITE_N8N_PDF_STEP2_URL || undefined,
+    // Las URLs reales se aplican desde config.json al cargar (ver getInitialAutomations).
+    webhookUrl: 'https://n8n.tu-servidor.io/webhook/interactive-pdf-to-worksheet',
     timeoutSeconds: 120,
     customCode: DEFAULT_CODE_TEMPLATES.interactivePdfToExcel,
     createdAt: '2025-02-18',
@@ -271,3 +271,26 @@ export default async function runAutomation({ helpers }) {
     logs: []
   }
 ];
+
+/** Automatizaciones reales que se entregan a una empresa (modo "client"). */
+const CLIENT_AUTOMATION_IDS = ['auto-n8n-ficha-interactiva'];
+
+/**
+ * Lista inicial según el modo:
+ * - demo: todas las de ejemplo, con sus métricas simuladas.
+ * - client: solo las reales, con contadores e historial desde cero.
+ */
+export function getInitialAutomations(): Automation[] {
+  const config = getConfig();
+  const list = config.mode === 'client'
+    ? DEMO_AUTOMATIONS.filter((a) => CLIENT_AUTOMATION_IDS.includes(a.id)).map((a) => ({
+        ...a,
+        executionCount: 0,
+        lastExecutedAt: null,
+        avgDurationMs: 0,
+        logs: [],
+        createdAt: new Date().toISOString().slice(0, 10),
+      }))
+    : DEMO_AUTOMATIONS;
+  return list.map((a) => ({ ...a, logs: [...a.logs] }));
+}
