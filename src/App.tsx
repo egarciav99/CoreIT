@@ -17,8 +17,27 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { LiveRunToast, ToastNotification } from './components/LiveRunToast';
 import { playPosBeep } from './utils/audio';
 import { executeUserCode, DEFAULT_CODE_TEMPLATES } from './utils/codeRunner';
+import { isRealWebhookUrl } from './utils/n8nInteractive';
 
 const STORAGE_KEY = 'hub_pos_automations_v3';
+
+/**
+ * Si el despliegue define las URLs de n8n y la automatización guardada en este navegador
+ * sigue con las de ejemplo, se usan las del despliegue (así funciona en cualquier equipo).
+ */
+function withEnvWebhooks(list: Automation[]): Automation[] {
+  const step1 = import.meta.env.VITE_N8N_PDF_STEP1_URL;
+  const step2 = import.meta.env.VITE_N8N_PDF_STEP2_URL;
+  if (!step1 && !step2) return list;
+  return list.map((a) => {
+    if (a.id !== 'auto-n8n-ficha-interactiva') return a;
+    return {
+      ...a,
+      webhookUrl: step1 && !isRealWebhookUrl(a.webhookUrl) ? step1 : a.webhookUrl,
+      webhookUrlStep2: step2 && !isRealWebhookUrl(a.webhookUrlStep2) ? step2 : a.webhookUrlStep2,
+    };
+  });
+}
 const VIEW_MODE_KEY = 'hub_pos_view_mode_v3';
 
 const CATEGORIES: AutomationCategory[] = [
@@ -40,7 +59,7 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return withEnvWebhooks(parsed);
         }
       }
     } catch {
