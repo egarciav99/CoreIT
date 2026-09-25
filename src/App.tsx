@@ -7,7 +7,8 @@ import {
   POSStats,
   ExecuteAutomationPayload
 } from './types';
-import { INITIAL_AUTOMATIONS } from './data/initialAutomations';
+import { getInitialAutomations } from './data/initialAutomations';
+import { getConfig } from './config';
 import { PosHeader } from './components/PosHeader';
 import { CategoryFilter } from './components/CategoryFilter';
 import { AutomationGrid } from './components/AutomationGrid';
@@ -21,13 +22,15 @@ import { isRealWebhookUrl } from './utils/n8nInteractive';
 
 const STORAGE_KEY = 'hub_pos_automations_v3';
 
+/** Separa los datos de la demo de los de una instalación real en el mismo navegador. */
+const STORAGE_KEY_ACTIVE = () => (getConfig().mode === 'client' ? 'coreit_client_automations_v1' : STORAGE_KEY);
+
 /**
- * Si el despliegue define las URLs de n8n y la automatización guardada en este navegador
- * sigue con las de ejemplo, se usan las del despliegue (así funciona en cualquier equipo).
+ * Aplica las URLs de n8n de config.json a la automatización de PDF cuando en este navegador
+ * sigue con las de ejemplo (así funciona en cualquier equipo sin configurarla a mano).
  */
-function withEnvWebhooks(list: Automation[]): Automation[] {
-  const step1 = import.meta.env.VITE_N8N_PDF_STEP1_URL;
-  const step2 = import.meta.env.VITE_N8N_PDF_STEP2_URL;
+function withConfigWebhooks(list: Automation[]): Automation[] {
+  const { pdfStep1: step1, pdfStep2: step2 } = getConfig().webhooks;
   if (!step1 && !step2) return list;
   return list.map((a) => {
     if (a.id !== 'auto-n8n-ficha-interactiva') return a;
@@ -55,17 +58,17 @@ const CATEGORIES: AutomationCategory[] = [
 export default function App() {
   const [automations, setAutomations] = useState<Automation[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(STORAGE_KEY_ACTIVE());
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return withEnvWebhooks(parsed);
+          return withConfigWebhooks(parsed);
         }
       }
     } catch {
       // Fallback
     }
-    return INITIAL_AUTOMATIONS;
+    return withConfigWebhooks(getInitialAutomations());
   });
 
   const [viewMode, setViewMode] = useState<'circles' | 'pads'>(() => {
@@ -90,7 +93,7 @@ export default function App() {
   // Sync to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(automations));
+      localStorage.setItem(STORAGE_KEY_ACTIVE(), JSON.stringify(automations));
     } catch (e) {
       console.error('Error guardando en localStorage', e);
     }
@@ -158,12 +161,19 @@ export default function App() {
     const active = automations.filter(a => a.status === 'active').length;
     const paused = total - active;
     const totalExecutions = automations.reduce((acc, curr) => acc + curr.executionCount, 0);
+    if (getConfig().mode === 'demo') {
+      return { total, active, paused, totalExecutions, successRate: 99.7, avgLatencyMs: 180 };
+    }
+    // Instalación real: métricas calculadas a partir del historial guardado.
+    const finished = automations.flatMap(a => a.logs).filter(l => l.status === 'success' || l.status === 'failed');
+    const ok = finished.filter(l => l.status === 'success').length;
     return {
       total,
       active,
       paused,
       totalExecutions,
-      successRate: 99.7,
+      successRate: finished.length ? Math.round((ok / finished.length) * 1000) / 10 : null,
+      avgLatencyMs: finished.length ? Math.round(finished.reduce((acc, l) => acc + (l.durationMs || 0), 0) / finished.length) : null,
     };
   }, [automations]);
 
@@ -390,7 +400,7 @@ export default function App() {
   };
 
   const handleResetDefaults = () => {
-    setAutomations(INITIAL_AUTOMATIONS);
+    setAutomations(withConfigWebhooks(getInitialAutomations()));
     setSelectedAutomation(null);
     setToast({
       id: `toast-${Date.now()}`,
@@ -461,7 +471,7 @@ export default function App() {
       <footer className="bg-white border-t border-slate-200 py-3.5 px-4 sm:px-8 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-700">CoreIT Automatización</span>
+            <span className="font-semibold text-slate-700">CoreIT Automatización{getConfig().companyName ? ` · ${getConfig().companyName}` : ''}</span>
             <span className="text-slate-300">•</span>
             <span className="font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/80 font-medium text-[11px]">
               Powered by IA - IT
@@ -470,8 +480,8 @@ export default function App() {
 
           <div className="flex items-center gap-4">
             <span>Flujos: <strong className="text-emerald-600 font-semibold">{stats.active} Activos</strong></span>
-            <span>Éxito (24h): <strong className="text-emerald-600 font-semibold">99.7%</strong></span>
-            <span>Latencia promedio: <strong className="text-slate-800 font-mono">180ms</strong></span>
+            <span>Éxito: <strong className="text-emerald-600 font-semibold">{stats.successRate === null ? '—' : `${stats.successRate}%`}</strong></span>
+            <span>Duración media: <strong className="text-slate-800 font-mono">{stats.avgLatencyMs === null ? '—' : stats.avgLatencyMs >= 1000 ? `${(stats.avgLatencyMs / 1000).toFixed(1)} s` : `${stats.avgLatencyMs} ms`}</strong></span>
           </div>
         </div>
         <p className="max-w-7xl mx-auto mt-2 text-[11px] text-slate-400 text-center sm:text-right">

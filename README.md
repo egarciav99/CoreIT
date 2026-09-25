@@ -15,6 +15,13 @@ Producto propio de EG Solutions: una interfaz tipo punto de venta donde cada emp
 
 ![Revisión humana antes de generar el Excel](docs/revision.png)
 
+## Dos formas de usarlo
+
+- **Con login (empresas y roles):** con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` configuradas, o con `supabase` rellenado en `config.json`, cada empresa tiene sus usuarios (superadmin, admin y usuario), sus automatizaciones y su historial. Las llamadas a n8n pasan por el servidor (`supabase/functions/run-automation`), así que el navegador nunca ve las URLs ni los secretos.
+- **Demo / local:** sin Supabase, funciona como hasta ahora, con los datos guardados en el navegador. Sirve para enseñarlo.
+
+La guía de despliegue, tanto en SaaS como instalado en la empresa con Docker, está en **[docs/ENTREGA.md](docs/ENTREGA.md)**.
+
 ## Stack
 
 React 19 · TypeScript · Vite · Tailwind CSS 4 · n8n (webhooks) · ExcelJS y LLM dentro del workflow de n8n

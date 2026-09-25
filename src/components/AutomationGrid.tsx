@@ -9,8 +9,8 @@ interface AutomationGridProps {
   viewMode: 'circles' | 'pads';
   onSelectAutomation: (automation: Automation) => void;
   onQuickRun: (e: React.MouseEvent, automation: Automation) => void;
-  onDeleteClick: (e: React.MouseEvent, automation: Automation) => void;
-  onOpenCreateModal: () => void;
+  onDeleteClick?: (e: React.MouseEvent, automation: Automation) => void;
+  onOpenCreateModal?: () => void;
   triggeringId: string | null;
   activeCategory: string;
   searchQuery: string;
@@ -41,14 +41,14 @@ export const AutomationGrid: React.FC<AutomationGridProps> = ({
             ? `No hay resultados para "${searchQuery}" en la categoría ${activeCategory}.`
             : `Aún no hay automatizaciones creadas en "${activeCategory}".`}
         </p>
-        <button
+        {onOpenCreateModal && <button
           id="btn-empty-state-create"
           onClick={onOpenCreateModal}
           className="automation-btn flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs tracking-wide shadow-sm cursor-pointer"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Crear Nueva Automatización</span>
-        </button>
+        </button>}
       </div>
     );
   }

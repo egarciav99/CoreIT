@@ -9,15 +9,24 @@ import {
   Clock
 } from 'lucide-react';
 import { POSStats } from '../types';
+import { getConfig } from '../config';
 import { playPosBeep, setSoundEnabled } from '../utils/audio';
 
 interface PosHeaderProps {
   stats: POSStats;
   searchQuery: string;
   onSearchChange: (q: string) => void;
-  onOpenCreateModal: () => void;
-  onResetDefaults: () => void;
-  onExportData: () => void;
+  /** Opcionales: si no se pasan, el botón no aparece (p. ej. usuarios sin permisos). */
+  onOpenCreateModal?: () => void;
+  onResetDefaults?: () => void;
+  onExportData?: () => void;
+  /** Contenido extra a la derecha de la barra superior (menú de usuario, empresa…). */
+  toolbarExtra?: React.ReactNode;
+  /** Empresa y logo (versión con login); si no, se usan los de config.json. */
+  companyName?: string;
+  logoUrl?: string;
+  /** Texto del contador de ejecuciones. */
+  executionsLabel?: string;
   viewMode: 'circles' | 'pads';
   onViewModeChange: (mode: 'circles' | 'pads') => void;
 }
@@ -31,6 +40,10 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
   onExportData,
   viewMode,
   onViewModeChange,
+  toolbarExtra,
+  companyName = getConfig().companyName,
+  logoUrl = getConfig().logoUrl,
+  executionsLabel = getConfig().mode === 'demo' ? 'Ejecuciones hoy' : 'Ejecuciones',
 }) => {
   const [time, setTime] = useState<string>('');
   const [soundOn, setSoundOn] = useState<boolean>(true);
@@ -56,7 +69,7 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
 
   const handleCreateClick = () => {
     playPosBeep('tap');
-    onOpenCreateModal();
+    onOpenCreateModal?.();
   };
 
   return (
@@ -82,7 +95,7 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
           <span className="hidden md:inline-block text-slate-300">|</span>
 
           <div className="hidden md:flex items-center gap-2 text-slate-500">
-            <span>Ejecuciones hoy: <strong className="text-slate-800 font-semibold">{stats.totalExecutions}</strong></span>
+            <span>{executionsLabel}: <strong className="text-slate-800 font-semibold">{stats.totalExecutions}</strong></span>
           </div>
         </div>
 
@@ -138,31 +151,32 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
           </button>
 
           {/* Export & Reset */}
-          <button
+          {onExportData && <button
             id="btn-export-json"
             onClick={() => {
               playPosBeep('click');
-              onExportData();
+              onExportData?.();
             }}
             title="Exportar respaldo JSON"
             className="p-1.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-emerald-700 hover:border-emerald-300 transition-all text-xs cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-          </button>
+          </button>}
 
-          <button
+          {onResetDefaults && <button
             id="btn-reset-defaults"
             onClick={() => {
               if (window.confirm('¿Deseas restaurar las automatizaciones iniciales?')) {
                 playPosBeep('delete');
-                onResetDefaults();
+                onResetDefaults?.();
               }
             }}
             title="Restaurar valores iniciales"
             className="p-1.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-amber-600 hover:border-amber-300 transition-all text-xs cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-          </button>
+          </button>}
+          {toolbarExtra}
         </div>
       </div>
 
@@ -171,6 +185,9 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
         {/* Brand */}
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
+            {logoUrl && (
+              <img src={logoUrl} alt={companyName || 'Logo'} className="h-9 w-auto max-w-[140px] object-contain" />
+            )}
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800 flex items-center gap-1.5">
               <span>CoreIT</span>
               <span className="text-emerald-700 font-bold">Automatización</span>
@@ -181,7 +198,7 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-            Terminal de Control & Automatización • <span className="text-emerald-600 font-semibold">{stats.active} Activas</span> de {stats.total}
+            {companyName ? `${companyName} • ` : 'Terminal de Control & Automatización • '}<span className="text-emerald-600 font-semibold">{stats.active} Activas</span> de {stats.total}
           </p>
         </div>
 
@@ -209,14 +226,14 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
           </div>
 
           {/* Primary "Nueva" Button */}
-          <button
+          {onOpenCreateModal && <button
             id="btn-open-create-modal"
             onClick={handleCreateClick}
             className="automation-btn flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-sm transition-all select-none cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Nueva</span>
-          </button>
+          </button>}
         </div>
       </div>
     </header>

@@ -38,7 +38,29 @@ export function isRealWebhookUrl(url?: string): url is string {
   }
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+/**
+ * Cómo llega una petición a n8n:
+ * - directa al webhook (demo, sin login), o
+ * - a través del servidor de CoreIT (con login; el navegador no conoce la URL ni el secreto).
+ */
+export type Transport = (step: 1 | 2, body: { form?: FormData; json?: unknown }) => Promise<Response>;
+
+/** Transporte directo a los webhooks de n8n. */
+export function webhookTransport(step1Url: string, step2Url: string | undefined, timeoutMs: number): Transport {
+  return (step, body) => {
+    const url = step === 2 ? step2Url : step1Url;
+    if (!url) throw new Error('Falta la URL del webhook del paso 2 (Editar → Red / Webhook).');
+    return fetchWithTimeout(
+      url,
+      body.form
+        ? { method: 'POST', body: body.form }
+        : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body.json ?? {}) },
+      timeoutMs
+    );
+  };
+}
+
+export async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -80,9 +102,8 @@ export function blocksForSection(blocks: WorksheetBlock[], section: string): num
  * (el modelo a veces devuelve un JSON inválido).
  */
 export async function analyzePdf(
-  webhookUrl: string,
+  transport: Transport,
   file: File,
-  timeoutMs: number,
   log: (msg: string) => void
 ): Promise<IntermediateData> {
   let lastError = '';
@@ -90,9 +111,9 @@ export async function analyzePdf(
     if (attempt > 1) log(`Reintentando el análisis (intento ${attempt} de 2)...`);
     const form = new FormData();
     form.append('data', file, file.name);
-    const res = await fetchWithTimeout(webhookUrl, { method: 'POST', body: form }, timeoutMs);
+    const res = await transport(1, { form });
     if (!res.ok) {
-      lastError = `n8n respondió ${res.status} ${res.statusText}`;
+      lastError = await errorMessage(res);
       log(lastError);
       continue;
     }
@@ -122,6 +143,17 @@ export async function analyzePdf(
   throw new Error(`No se pudo analizar el PDF: ${lastError}`);
 }
 
+/** Mensaje de error legible: el del servidor de CoreIT si lo trae, o el estado HTTP. */
+async function errorMessage(res: Response): Promise<string> {
+  try {
+    const data = await res.clone().json();
+    if (data?.error) return String(data.error);
+  } catch {
+    // Sin JSON: se usa el estado.
+  }
+  return `n8n respondió ${res.status} ${res.statusText}`;
+}
+
 function fileNameFromResponse(res: Response, fallback: string): string {
   const header = res.headers.get('content-disposition') || '';
   const match = header.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
@@ -130,24 +162,17 @@ function fileNameFromResponse(res: Response, fallback: string): string {
 
 /** Paso 2. Devuelve el .xlsx generado por n8n. */
 export async function generateWorksheet(
-  webhookUrl: string,
-  params: { section: string; title: string; blocks: WorksheetBlock[] },
-  timeoutMs: number
+  transport: Transport,
+  params: { section: string; title: string; blocks: WorksheetBlock[] }
 ): Promise<{ blob: Blob; fileName: string }> {
-  const res = await fetchWithTimeout(
-    webhookUrl,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        seccion_seleccionada: params.section,
-        titulo_ficha: params.title,
-        todos_los_bloques: params.blocks,
-      }),
+  const res = await transport(2, {
+    json: {
+      seccion_seleccionada: params.section,
+      titulo_ficha: params.title,
+      todos_los_bloques: params.blocks,
     },
-    timeoutMs
-  );
-  if (!res.ok) throw new Error(`n8n respondió ${res.status} ${res.statusText} al generar el Excel`);
+  });
+  if (!res.ok) throw new Error(`${await errorMessage(res)} al generar el Excel`);
   const blob = await res.blob();
   if (blob.size === 0) throw new Error('n8n devolvió un archivo vacío');
   const safeTitle = (params.title || 'e-Worksheet').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 60);

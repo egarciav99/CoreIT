@@ -40,14 +40,17 @@ interface AutomationDetailModalProps {
   automation: Automation | null;
   isOpen: boolean;
   onClose: () => void;
-  onToggleStatus: (id: string) => void;
-  onRequestDelete: (automation: Automation) => void;
-  onClone: (automation: Automation) => void;
+  /** Las acciones de gestión son opcionales: si no se pasan, sus botones no aparecen (rol usuario). */
+  onToggleStatus?: (id: string) => void;
+  onRequestDelete?: (automation: Automation) => void;
+  onClone?: (automation: Automation) => void;
   onExecute: (
     automation: Automation, 
     customPayload?: ExecuteAutomationPayload
   ) => Promise<ExecutionLog>;
-  onEdit: (automation: Automation) => void;
+  onEdit?: (automation: Automation) => void;
+  /** Versión con login: la ejecución va por el servidor y se ocultan código y URLs de n8n. */
+  hosted?: boolean;
 }
 
 export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
@@ -59,6 +62,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
   onClone,
   onExecute,
   onEdit,
+  hosted = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'code' | 'logs' | 'n8n_config'>('details');
   const [copiedUrl, setCopiedUrl] = useState(false);
@@ -168,7 +172,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
     'Cambiar Archivo';
 
   // Con un webhook real, n8n necesita un PDF de verdad: la muestra es solo para la demo simulada.
-  const needsRealFile = automation.outputType === 'interactive_selection' && isRealWebhookUrl(automation.webhookUrl);
+  const needsRealFile = hosted || (automation.outputType === 'interactive_selection' && isRealWebhookUrl(automation.webhookUrl));
 
   const sampleButtonLabel = 
     automation.inputType === 'excel_file' ? 'Usar Excel de muestra' :
@@ -209,7 +213,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
 
   const handleToggle = () => {
     playPosBeep('toggle');
-    onToggleStatus(automation.id);
+    onToggleStatus?.(automation.id);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -449,7 +453,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
 
   const handleDeleteClick = () => {
     playPosBeep('tap');
-    onRequestDelete(automation);
+    onRequestDelete?.(automation);
   };
 
   return (
@@ -495,14 +499,14 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <button
+              {onEdit && <button
                 id="btn-modal-edit"
                 onClick={() => onEdit(automation)}
                 className="p-2 rounded-xl text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
                 title="Editar automatización / Código"
               >
                 <Edit3 className="w-4 h-4" />
-              </button>
+              </button>}
               <button
                 onClick={() => {
                   playPosBeep('tap');
@@ -537,7 +541,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
               )}
             </button>
 
-            {hasCustomCode && (
+            {!hosted && hasCustomCode && (
               <button
                 type="button"
                 onClick={() => {
@@ -559,7 +563,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
               </button>
             )}
 
-            <button
+            {!hosted && <button
               type="button"
               onClick={() => {
                 setActiveTab('n8n_config');
@@ -577,7 +581,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
                   className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-full"
                 />
               )}
-            </button>
+            </button>}
 
             <button
               type="button"
@@ -992,7 +996,7 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onEdit(automation)}
+                      onClick={() => onEdit?.(automation)}
                       className="px-2.5 py-1 text-xs rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center gap-1 font-semibold transition-colors"
                     >
                       <Edit3 className="w-3 h-3" />
@@ -1117,33 +1121,33 @@ export const AutomationDetailModal: React.FC<AutomationDetailModalProps> = ({
 
           {/* Action Buttons Grid */}
           <div className="p-4 sm:p-6 border-t border-slate-100 bg-white grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <button
+            {onToggleStatus && <button
               id="btn-modal-toggle-status"
               onClick={handleToggle}
               className="automation-btn py-3 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-100 transition-all text-center cursor-pointer"
             >
               {isActive ? 'Pausar Flujo' : 'Activar Flujo'}
-            </button>
+            </button>}
 
-            <button
+            {onClone && <button
               id="btn-modal-clone"
               onClick={() => {
                 playPosBeep('tap');
-                onClone(automation);
+                onClone?.(automation);
               }}
               className="automation-btn py-3 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-100 transition-all text-center cursor-pointer"
             >
               Duplicar
-            </button>
+            </button>}
 
-            <button
+            {onRequestDelete && <button
               id="btn-modal-delete"
               onClick={handleDeleteClick}
               className="automation-btn col-span-2 sm:col-span-1 py-3 px-3 rounded-xl font-semibold text-xs bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 transition-all text-center cursor-pointer flex items-center justify-center gap-1"
             >
               <Trash2 className="w-3.5 h-3.5 inline" />
               <span>Eliminar</span>
-            </button>
+            </button>}
 
             <button
               id="btn-modal-run-now"
