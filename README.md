@@ -36,6 +36,7 @@ La automatización **"n8n: Ficha Técnica PDF a e-Worksheet (.xlsx)"** (salida *
 3. **Generación:** el hub envía `{ seccion_seleccionada, titulo_ficha, todos_los_bloques }` (ya revisados) a la URL del paso 2 y descarga el `.xlsx` que devuelve n8n.
 
 ### Configuración
+- **En el despliegue (Vercel):** define `VITE_N8N_PDF_STEP1_URL` y `VITE_N8N_PDF_STEP2_URL` con las URLs de producción de los dos nodos Webhook. Así cualquier navegador que abra el hub usa n8n real sin configurar nada. Si en un navegador ya se guardó otra URL real, se respeta.
 - **En el hub:** Editar la automatización → pestaña de red/webhook → **URL Webhook de n8n** (paso 1) y **URL Webhook del paso 2**. Usa las URLs de *producción* de los nodos Webhook del workflow.
 - **En n8n:** los dos nodos Webhook deben permitir CORS (*Options → Allowed Origins (CORS)*: el dominio del hub o `*`) y el workflow debe estar activo.
 

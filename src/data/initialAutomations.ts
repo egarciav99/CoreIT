@@ -20,7 +20,9 @@ export const INITIAL_AUTOMATIONS: Automation[] = [
     lastExecutedAt: 'Hace 2 min',
     avgDurationMs: 510,
     targetService: 'n8n (regex + Gemini + auditor + ExcelJS)',
-    webhookUrl: 'https://n8n.tu-servidor.io/webhook/interactive-pdf-to-worksheet',
+    // En despliegue, las URLs reales vienen de las variables de entorno (ver README).
+    webhookUrl: import.meta.env.VITE_N8N_PDF_STEP1_URL || 'https://n8n.tu-servidor.io/webhook/interactive-pdf-to-worksheet',
+    webhookUrlStep2: import.meta.env.VITE_N8N_PDF_STEP2_URL || undefined,
     timeoutSeconds: 120,
     customCode: DEFAULT_CODE_TEMPLATES.interactivePdfToExcel,
     createdAt: '2025-02-18',
