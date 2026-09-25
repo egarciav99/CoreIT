@@ -10,6 +10,8 @@ export interface CoreConfig {
   companyName: string;
   logoUrl: string;
   webhooks: { pdfStep1: string; pdfStep2: string };
+  /** Con Supabase configurado, CoreIT funciona con login, empresas y roles. Sin él, en modo local/demo. */
+  supabase: { url: string; anonKey: string };
 }
 
 const fromEnv: CoreConfig = {
@@ -19,6 +21,10 @@ const fromEnv: CoreConfig = {
   webhooks: {
     pdfStep1: import.meta.env.VITE_N8N_PDF_STEP1_URL || '',
     pdfStep2: import.meta.env.VITE_N8N_PDF_STEP2_URL || '',
+  },
+  supabase: {
+    url: import.meta.env.VITE_SUPABASE_URL || '',
+    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
   },
 };
 
@@ -42,10 +48,20 @@ export async function loadConfig(): Promise<CoreConfig> {
           pdfStep1: file.webhooks?.pdfStep1 || fromEnv.webhooks.pdfStep1,
           pdfStep2: file.webhooks?.pdfStep2 || fromEnv.webhooks.pdfStep2,
         },
+        supabase: {
+          url: file.supabase?.url || fromEnv.supabase.url,
+          anonKey: file.supabase?.anonKey || fromEnv.supabase.anonKey,
+        },
       };
     }
   } catch {
     // Sin config.json (p. ej. en desarrollo): se usan las variables de entorno.
   }
   return current;
+}
+
+/** true si hay backend: login, empresas y roles. */
+export function isHosted(): boolean {
+  const { url, anonKey } = getConfig().supabase;
+  return Boolean(url && anonKey);
 }

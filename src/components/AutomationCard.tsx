@@ -10,7 +10,8 @@ interface AutomationCardProps {
   viewMode: 'circles' | 'pads';
   onSelect: (automation: Automation) => void;
   onQuickRun: (e: React.MouseEvent, automation: Automation) => void;
-  onDeleteClick: (e: React.MouseEvent, automation: Automation) => void;
+  /** Sin esta función (usuarios sin permisos) no se muestra la papelera. */
+  onDeleteClick?: (e: React.MouseEvent, automation: Automation) => void;
   isTriggering?: boolean;
 }
 
@@ -41,7 +42,7 @@ export const AutomationCard: React.FC<AutomationCardProps> = ({
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     playPosBeep('tap');
-    onDeleteClick(e, automation);
+    onDeleteClick?.(e, automation);
   };
 
   if (viewMode === 'circles') {
@@ -59,14 +60,14 @@ export const AutomationCard: React.FC<AutomationCardProps> = ({
         onClick={handleCardClick}
       >
         {/* Quick Delete Trash Button (Top right on hover/tap) */}
-        <button
+        {onDeleteClick && <button
           id={`btn-card-delete-${automation.id}`}
           onClick={handleDelete}
           title="Eliminar automatización"
           className="absolute -top-1 -right-1 z-10 w-7 h-7 rounded-full bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-400 hover:text-rose-600 flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        </button>}
 
         {/* The Clean White Circle Button */}
         <div
@@ -183,14 +184,14 @@ export const AutomationCard: React.FC<AutomationCardProps> = ({
             </span>
           </div>
 
-          <button
+          {onDeleteClick && <button
             id={`btn-pad-delete-${automation.id}`}
             onClick={handleDelete}
             title="Eliminar automatización"
             className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
-          </button>
+          </button>}
         </div>
       </div>
 

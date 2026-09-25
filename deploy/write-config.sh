@@ -4,7 +4,7 @@
 set -e
 TARGET=/usr/share/nginx/html/config.json
 
-if [ -z "${COREIT_MODE}${COREIT_COMPANY}${COREIT_LOGO_URL}${N8N_PDF_STEP1_URL}${N8N_PDF_STEP2_URL}" ]; then
+if [ -z "${COREIT_MODE}${COREIT_COMPANY}${COREIT_LOGO_URL}${N8N_PDF_STEP1_URL}${N8N_PDF_STEP2_URL}${SUPABASE_URL}${SUPABASE_ANON_KEY}" ]; then
   exit 0
 fi
 
@@ -18,6 +18,10 @@ cat > "$TARGET" <<JSON
   "webhooks": {
     "pdfStep1": "$(json_escape "${N8N_PDF_STEP1_URL:-}")",
     "pdfStep2": "$(json_escape "${N8N_PDF_STEP2_URL:-}")"
+  },
+  "supabase": {
+    "url": "$(json_escape "${SUPABASE_URL:-}")",
+    "anonKey": "$(json_escape "${SUPABASE_ANON_KEY:-}")"
   }
 }
 JSON

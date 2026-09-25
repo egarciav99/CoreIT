@@ -5,5 +5,9 @@
   "webhooks": {
     "pdfStep1": "",
     "pdfStep2": ""
+  },
+  "supabase": {
+    "url": "",
+    "anonKey": ""
   }
 }

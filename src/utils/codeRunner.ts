@@ -1,6 +1,6 @@
 import { Automation, IntermediateData } from '../types';
 import { generateAndDownloadExcel, downloadBinaryFile } from './fileExporter';
-import { analyzePdf, generateWorksheet, isRealWebhookUrl, WorksheetBlock } from './n8nInteractive';
+import { analyzePdf, generateWorksheet, isRealWebhookUrl, webhookTransport, WorksheetBlock, type Transport } from './n8nInteractive';
 
 export interface CodeRunnerResult {
   success: boolean;
@@ -22,6 +22,8 @@ export interface CodeRunnerOptions {
   selectedSection?: string;
   intermediateData?: IntermediateData | null;
   webhookUrl?: string;
+  /** Si se indica, las llamadas a n8n van por aquí (p. ej. el servidor de CoreIT). */
+  transport?: Transport;
 }
 
 export const DEFAULT_CODE_TEMPLATES = {
@@ -334,7 +336,7 @@ export async function executeUserCode(
 
   // Flujo interactivo real: si el webhook está configurado, se llama a n8n directamente
   // (sin depender del código de ejemplo guardado en la automatización).
-  if (automation.outputType === 'interactive_selection' && isRealWebhookUrl(options?.webhookUrl || automation.webhookUrl)) {
+  if (automation.outputType === 'interactive_selection' && (options?.transport || isRealWebhookUrl(options?.webhookUrl || automation.webhookUrl))) {
     return runInteractiveN8n(automation, options, maxTimeoutMs, startTime, logs, logger);
   }
 
@@ -604,12 +606,13 @@ async function runInteractiveN8n(
 ): Promise<CodeRunnerResult> {
   const isStep2 = options?.step === 2 || Boolean(options?.selectedSection);
   const elapsed = () => Math.round(performance.now() - startTime);
+  const transport = options?.transport
+    || webhookTransport((options?.webhookUrl || automation.webhookUrl) as string, isRealWebhookUrl(automation.webhookUrlStep2) ? automation.webhookUrlStep2 : undefined, timeoutMs);
   try {
     if (!isStep2) {
-      const url = (options?.webhookUrl || automation.webhookUrl) as string;
       if (!options?.file) throw new Error('Selecciona un archivo PDF para analizar.');
-      log(`1. Enviando "${options.file.name}" al webhook de análisis de n8n...`);
-      const data = await analyzePdf(url, options.file, timeoutMs, log);
+      log(`1. Enviando "${options.file.name}" a n8n para analizarlo...`);
+      const data = await analyzePdf(transport, options.file, log);
       const sections = data.secciones_detectadas || [];
       const blocks = (data.todos_los_bloques || []) as unknown[];
       log(`2. Documento: ${data.titulo_ficha}`);
@@ -625,15 +628,14 @@ async function runInteractiveN8n(
       };
     }
 
-    const url2 = automation.webhookUrlStep2;
-    if (!isRealWebhookUrl(url2)) {
+    if (!options?.transport && !isRealWebhookUrl(automation.webhookUrlStep2)) {
       throw new Error('Falta la URL del webhook del paso 2 (Editar → Red / Webhook).');
     }
     const section = options?.selectedSection || options?.intermediateData?.selectedSection || 'TODAS LAS SECCIONES';
     const title = options?.intermediateData?.titulo_ficha || 'e-Worksheet';
     const blocks = (options?.intermediateData?.todos_los_bloques || []) as unknown as WorksheetBlock[];
     log(`4. Generando e-Worksheet para "${section}" con ${blocks.length} pasos revisados...`);
-    const { blob, fileName } = await generateWorksheet(url2, { section, title, blocks }, timeoutMs);
+    const { blob, fileName } = await generateWorksheet(transport, { section, title, blocks });
     downloadBinaryFile(blob, fileName);
     log(`5. Excel descargado: ${fileName}`);
     return {
