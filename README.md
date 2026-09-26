@@ -1,4 +1,4 @@
-# CoreIT — Hub de automatizaciones
+# CoreIT · Hub de automatizaciones
 
 Producto propio de EG Solutions: una interfaz tipo punto de venta donde cada empresa lanza sus automatizaciones con un toque. La interfaz es React y la lógica pesada (extracción de documentos, IA y generación de archivos) corre en workflows de n8n.
 

@@ -1,4 +1,4 @@
-# CoreIT — cómo se entrega a una empresa
+# CoreIT · cómo se entrega a una empresa
 
 CoreIT es la cara visible de las automatizaciones de n8n. Tú (o el IT de la empresa) construyes el flujo en n8n. La empresa lo recibe en CoreIT como un botón: sube el archivo, revisa y descarga el resultado, sin ver n8n.
 
