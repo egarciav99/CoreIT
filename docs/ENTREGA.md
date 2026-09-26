@@ -37,7 +37,7 @@ Una sola instalación para todas las empresas. Cada empresa ve solo lo suyo.
 1. Crea un proyecto en [supabase.com](https://supabase.com), en una región de la UE.
 2. Aplica la base de datos. Hay dos formas:
    - con la CLI: `npx supabase link --project-ref <ref>` y después `npx supabase db push`;
-   - o pega `supabase/migrations/20260925000001_coreit_core.sql` en el **SQL Editor**.
+   - o pega en el **SQL Editor**, en este orden, todos los archivos de `supabase/migrations/`: `20260925000001_coreit_core.sql` y `20260926000001_fix_is_org_admin_null.sql`.
 3. Despliega las funciones:
    ```bash
    npx supabase functions deploy run-automation
