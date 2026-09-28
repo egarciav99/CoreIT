@@ -38,7 +38,12 @@ Una sola instalación para todas las empresas. Cada empresa ve solo lo suyo.
 2. Aplica la base de datos. Hay dos formas:
    - con la CLI: `npx supabase link --project-ref <ref>` y después `npx supabase db push`;
    - o pega en el **SQL Editor**, en este orden, todos los archivos de `supabase/migrations/`: `20260925000001_coreit_core.sql` y `20260926000001_fix_is_org_admin_null.sql`.
-3. Despliega las funciones:
+3. Despliega las funciones. Lo más cómodo es la acción de GitHub **Desplegar Edge Functions** (`.github/workflows/deploy-functions.yml`), que las despliega sola en cada cambio de `supabase/functions/`. En el repo, Settings > Secrets and variables > Actions:
+   - Secret `SUPABASE_ACCESS_TOKEN`: se crea en supabase.com/dashboard/account/tokens.
+   - Variable `SUPABASE_PROJECT_REF`: el código de la URL del proyecto (`https://<ref>.supabase.co`).
+   - Variables `COREIT_APP_URL` y `COREIT_ALLOWED_ORIGINS`: la URL de CoreIT.
+
+   Después, Actions > Desplegar Edge Functions > Run workflow. También se puede hacer a mano:
    ```bash
    npx supabase functions deploy run-automation
    npx supabase functions deploy manage-members
