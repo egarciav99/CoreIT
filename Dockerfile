@@ -10,6 +10,7 @@ RUN bun run build
 
 FROM nginx:1.27-alpine
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY deploy/security-headers.conf /etc/nginx/conf.d/security-headers.inc
 COPY deploy/write-config.sh /docker-entrypoint.d/40-coreit-config.sh
 RUN chmod +x /docker-entrypoint.d/40-coreit-config.sh
 COPY --from=build /app/dist /usr/share/nginx/html
